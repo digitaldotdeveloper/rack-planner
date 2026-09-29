@@ -97,9 +97,26 @@ button.icon{padding:3px 7px;line-height:1}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+/* login gate */
+.gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.gate form{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:22px 20px;width:100%;max-width:320px;display:grid;gap:10px}
+.gate h2{margin:0 0 4px;font-size:15px;font-weight:600}
+.gate label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.gate input{width:100%}
+.gate .err{color:var(--bad);font-size:12px;min-height:1.2em;margin:0}
+.wrap[hidden]{display:none}
 </style>
 
-<div class="wrap">
+<div class="gate" id="gate">
+  <form id="loginForm" autocomplete="off">
+    <h2>Head Office Rack Planner</h2>
+    <label>User <input type="text" id="loginUser" autocomplete="username" autofocus></label>
+    <label>Password <input type="password" id="loginPass" autocomplete="current-password"></label>
+    <p class="err" id="loginErr"></p>
+    <button class="primary" type="submit">Open</button>
+  </form>
+</div>
+<div class="wrap" id="app" hidden>
   <div class="top">
     <div>
       <h1>Head Office Rack Planner</h1>
@@ -368,5 +385,16 @@ function build3D(){init3D();if(!R)return;const G=R.group;
   R.cam.target.set(0,(Math.max(...cabs().map(c=>c.size))*UCM+12)/2,0);
 }
 matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(view==='3d')build3D()});
-render();
+
+/* ---------- login gate ---------- */
+const AUTH='49807dcc26b371799f512213b0e9dfaa635b8b739b8eeb3117e717b99a686027';
+async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function unlock(){document.getElementById('gate').remove();document.getElementById('app').hidden=false;render()}
+let opened=false;try{opened=sessionStorage.getItem('rack-planner-auth')===AUTH}catch(e){}
+if(opened)unlock();
+document.getElementById('loginForm').addEventListener('submit',async e=>{e.preventDefault();
+  const u=document.getElementById('loginUser').value.trim().toLowerCase(),p=document.getElementById('loginPass').value,err=document.getElementById('loginErr');
+  if(!crypto.subtle){err.textContent='This browser cannot verify the login. Open the page over https.';return}
+  if(await sha(u+':'+p)===AUTH){try{sessionStorage.setItem('rack-planner-auth',AUTH)}catch(e){}unlock()}
+  else{err.textContent='Wrong user or password.';document.getElementById('loginPass').value='';document.getElementById('loginPass').focus()}});
 </script>
