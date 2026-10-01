@@ -163,7 +163,7 @@ button.icon{padding:3px 7px;line-height:1}
       <span><button id="autoBtn" title="Restack each cabinet: power at the bottom, NVRs and servers above, the rest from the top down">Auto-arrange</button></span>
       <button id="resetBtn">Reset to head-office list</button>
     </div>
-    <p class="note">Typical sizes: a 16 or 32-channel NVR is 1U, a 24-port switch is 1U, the two 16-port mini PoE switches are desktop units and share one 1U shelf. A tower server standing upright is about 44 cm tall, which is 10U, plus 1U for the shelf under it. Two towers fit side by side on one shelf (about 18 cm each across a 45 cm shelf). Measure your towers and change the U column if they differ. Keep 1U blank above and below the NVR stack. A normal line-interactive tower UPS does not mount on rails: stand it on the floor beside the cabinet and run its output to the PDU. Standing it inside the cabinet costs about 9U.</p>
+    <p class="note">Typical sizes: a 16 or 32-channel NVR is 1U, a 24-port switch is 1U, the two 16-port mini PoE switches are desktop units and share one 1U shelf. A tower server standing upright is about 44 cm tall, which is 10U, plus 1U for the shelf under it. Two towers fit side by side on one shelf (about 18 cm each across a 45 cm shelf). Measure your towers and change the U column if they differ. The two 16-channel PoE NVRs power their cameras from their own rear ports, so only the cameras on the 32-channel NVR need the PoE switch. Keep 1U clear below the NVR stack. A normal line-interactive tower UPS does not mount on rails: stand it on the floor beside the cabinet and run its output to the PDU. Standing it inside the cabinet costs about 9U.</p>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -171,23 +171,22 @@ button.icon{padding:3px 7px;line-height:1}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const TYPES={nvr:['NVR','--c-nvr',40],server:['Rack server','--c-server',65],tower:['Tower servers on shelf','--c-tower',45],poe:['PoE switch','--c-poe',30],sw:['Switch','--c-sw',30],net:['Network / router','--c-net',35],power:['Power','--c-power',45],passive:['Passive (panel, shelf, manager)','--c-passive',6]};
-const KEY='rack-planner-v4';
+const KEY='rack-planner-v5';
 const UCM=4.445;
 function defaults(){return {cabs:[{name:'Cabinet A · network + NVR',size:36},{name:'Cabinet B · servers',size:36}],items:[
   {cab:0,name:'Cable manager 1U',type:'passive',u:1,qty:1,on:true,pos:36},
-  {cab:0,name:'Patch panel 24 (cameras)',type:'passive',u:1,qty:1,on:true,pos:35},
-  {cab:0,name:'PoE switch 24 (cameras)',type:'poe',u:1,qty:2,on:true,pos:33},
+  {cab:0,name:'Patch panel 24 (desks)',type:'passive',u:1,qty:1,on:true,pos:35},
+  {cab:0,name:'TP-Link switch 24 (no PoE)',type:'sw',u:1,qty:2,on:true,pos:33},
   {cab:0,name:'Cable manager 1U',type:'passive',u:1,qty:1,on:true,pos:32},
-  {cab:0,name:'Patch panel 24 (desks)',type:'passive',u:1,qty:1,on:true,pos:31},
-  {cab:0,name:'Switch 24 (no PoE)',type:'sw',u:1,qty:2,on:true,pos:29},
-  {cab:0,name:'Cable manager 1U',type:'passive',u:1,qty:1,on:true,pos:28},
-  {cab:0,name:'Patch panel 24 (phones + Grandstream)',type:'passive',u:1,qty:1,on:true,pos:27},
-  {cab:0,name:'Shelf: mini PoE 16 phones + mini PoE 16 Grandstream',type:'poe',u:1,qty:1,on:true,pos:26},
-  {cab:0,name:'Shelf: FortiGate + ISP modems',type:'net',u:1,qty:1,on:true,pos:25},
-  {cab:0,name:'Tower UPS standing inside cabinet (tick only if not on the floor)',type:'tower',u:9,qty:1,on:false,pos:11,n:1},
-  {cab:0,name:'Rack-mount server 2U',type:'server',u:2,qty:2,on:true,pos:7},
-  {cab:0,name:'Blank / vent',type:'passive',u:1,qty:1,on:true,pos:6},
-  {cab:0,name:'NVR',type:'nvr',u:1,qty:3,on:true,pos:3},
+  {cab:0,name:'Patch panel 24 (phones + Grandstream)',type:'passive',u:1,qty:1,on:true,pos:31},
+  {cab:0,name:'Shelf: mini PoE 16 phones + mini PoE 16 Grandstream',type:'poe',u:1,qty:1,on:true,pos:30},
+  {cab:0,name:'Shelf: FortiGate + ISP modems',type:'net',u:1,qty:1,on:true,pos:29},
+  {cab:0,name:'Tower UPS standing inside cabinet (tick only if not on the floor)',type:'tower',u:9,qty:1,on:false,pos:13,n:1},
+  {cab:0,name:'Rack-mount server 2U',type:'server',u:2,qty:2,on:true,pos:8},
+  {cab:0,name:'Cable manager 1U (cameras)',type:'passive',u:1,qty:1,on:true,pos:7},
+  {cab:0,name:'PoE switch 24 (cameras on the 32-ch NVR)',type:'poe',u:1,qty:1,on:true,pos:6},
+  {cab:0,name:'NVR 32-ch (no PoE)',type:'nvr',u:1,qty:1,on:true,pos:5},
+  {cab:0,name:'NVR 16-ch PoE',type:'nvr',u:1,qty:2,on:true,pos:3},
   {cab:0,name:'Blank / vent',type:'passive',u:1,qty:1,on:true,pos:2},
   {cab:0,name:'PDU (horizontal, fed from tower UPS on the floor)',type:'power',u:1,qty:1,on:true,pos:1},
   {cab:1,name:'Tower server (upright)',type:'tower',u:11,qty:1,on:true,pos:24,n:1},
