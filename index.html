@@ -153,7 +153,9 @@ button.icon{padding:3px 7px;line-height:1}
 .pleg{font-size:10px;line-height:2.1;margin:0}
 .p3d{display:block;width:100%;margin-bottom:4mm;border-radius:4px;border:1px solid #cfd5db}
 #printDate{color:var(--muted);font-size:11px;margin-top:2px}
-#printPorts{break-before:page}
+#printDetail{break-before:page}
+#printPorts{margin-top:6mm}
+.stage[data-n="1"] .p3d{margin:0}
 .pps{display:flex;flex-wrap:wrap;gap:5mm 8mm}
 .pp{break-inside:avoid;display:grid;gap:1mm}
 .pp b{font-size:10.5px}
@@ -236,7 +238,7 @@ button.icon{padding:3px 7px;line-height:1}
     </div>
     <div class="printonly" id="printList"></div>
   </div>
-  <div class="printonly" id="printPorts"></div>
+  <div class="printonly" id="printDetail"><div id="printTable"></div><div id="printPorts"></div></div>
 
   <div class="panel" id="equip">
     <h2>Equipment</h2>
@@ -492,19 +494,25 @@ matchMedia('(min-width:1000px)').addEventListener('change',()=>{if(is3D())build3
 
 /* ---------- print ---------- */
 // the 3D scene exactly as it is turned right now, rendered at a fixed size so it also works while the 3D tab is hidden
-function shot3D(){build3D();if(!R)return '';const sel0=sel;sel=-1;build3D();
-  R.renderer.setSize(1100,760,false);R.camera.aspect=1100/760;R.camera.updateProjectionMatrix();R.aim();R.renderer.render(R.scene,R.camera);
-  const url=R.renderer.domElement.toDataURL('image/png');sel=sel0;R.resize();return url}
+function shot3D(w,h){build3D();if(!R)return '';const sel0=sel;sel=-1;build3D();
+  R.renderer.setSize(w,h,false);R.camera.aspect=w/h;
+  // a tall narrow shot widens its lens so the cabinet is not cropped at the sides
+  const fov0=R.camera.fov,t=Math.tan(fov0*Math.PI/360);if(w/h<0.6)R.camera.fov=Math.atan(t*0.6/(w/h))*360/Math.PI;
+  R.camera.updateProjectionMatrix();R.aim();R.renderer.render(R.scene,R.camera);
+  const url=R.renderer.domElement.toDataURL('image/png');sel=sel0;R.camera.fov=fov0;R.camera.updateProjectionMatrix();R.resize();return url}
 function buildPrint(){const on=items().filter(it=>it.on);
   const rng=it=>'U'+it.pos+(it.u>1?'–'+(it.pos+it.u-1):''),cnt=(it,ch)=>pm(it).split(ch).length-1;
-  let tb=0,to=0,html='';const img=shot3D();
-  if(img)html+=`<img class="p3d" alt="3D view" src="${img}">`;
+  // one cabinet: page 1 is the rack with the 3D view beside it at the same height, like the screen; the list and port maps follow on page 2
+  const one=cabs().length===1,pu=parseFloat(document.documentElement.style.getPropertyValue('--pu'))||20;
+  const img=one?shot3D(700,Math.round(700*(cabs()[0].size*pu+52)/317)):shot3D(1100,760),tag=img?`<img class="p3d" alt="3D view" src="${img}">`:'';
+  let tb=0,to=0,html=one?'':tag;
+  document.getElementById('printList').innerHTML=one?tag:'';
   cabs().forEach((cb,c)=>{const list=on.filter(it=>it.cab===c).sort((a,b)=>b.pos-a.pos),used=list.reduce((a,it)=>a+it.u,0);
     html+=`<h3>${esc(cb.name)} · ${cb.size}U · ${used}U used, ${cb.size-used}U free</h3><table><thead><tr><th>U</th><th>Device</th><th>Size</th><th>Cables</th></tr></thead><tbody>`+
       list.map(it=>{const b=cnt(it,'b'),o=cnt(it,'o');tb+=b;to+=o;
         return `<tr><td>${rng(it)}</td><td>${esc(it.name)}${it.type==='tower'?' ×'+(it.n||1):''}</td><td>${it.u}U</td><td>${it.ports?`${b} blue, ${o} orange, ${it.ports-b-o} free`:'–'}</td></tr>`}).join('')+'</tbody></table>'});
   html+=`<p class="pleg"><i class="pc b">1</i> Blue cable: computers, printers (on PoE switches: phones, Grandstream APs) · ${tb} in total<br><i class="pc o">1</i> Orange cable: cameras · ${to} in total</p>`;
-  document.getElementById('printList').innerHTML=html;
+  document.getElementById('printTable').innerHTML=html;
   const wp=on.filter(it=>it.ports).sort((a,b)=>a.cab-b.cab||b.pos-a.pos);
   document.getElementById('printPorts').innerHTML=wp.length?'<h3>Port maps</h3><div class="pps">'+wp.map(it=>`<div class="pp"><b>${cabs().length>1?esc(cabShort(it.cab))+' · ':''}${rng(it)} · ${esc(it.name)}</b><span>blue = ${blueFor(it)} · orange = cameras</span><div class="g">${[...pm(it)].map((ch,k)=>`<i class="pc ${ch==='.'?'':ch}">${k+1}</i>`).join('')}</div></div>`).join('')+'</div>':'';
   document.getElementById('printDate').textContent='Printed '+new Date().toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
@@ -568,9 +576,11 @@ function labelTex(text,w,h,bg,fg,it){const c=document.createElement('canvas');co
     for(let k=0;k<it.ports;k++){const [cx,cy]=L.at(k),X=(cx+w/2-L.pw/2)*s,Y=(h/2-cy-L.ph/2)*s;
       x.fillStyle=p[k]==='.'?'rgba(0,0,0,.55)':CABLE[p[k]];x.fillRect(X,Y,L.pw*s,L.ph*s);
       if(p[k]!=='.'){x.strokeStyle='rgba(255,255,255,.8)';x.lineWidth=1.5;x.strokeRect(X,Y,L.pw*s,L.ph*s)}}}
-  x.fillStyle=fg;const fs=Math.min(c.height*0.55,14*s);x.font=`500 ${fs}px "IBM Plex Sans",sans-serif`;x.textBaseline='middle';
+  // tall narrow faces (upright towers) get their name written up the face instead of being cut to one letter
+  const up=c.height>c.width*1.5;if(up)maxW=c.height-60;
+  x.fillStyle=fg;const fs=up?Math.min(c.width*0.3,14*s):Math.min(c.height*0.55,14*s);x.font=`500 ${fs}px "IBM Plex Sans",sans-serif`;x.textBaseline='middle';
   let t=text;while(x.measureText(t).width>maxW&&t.length>3)t=t.slice(0,-2);if(t!==text)t=t.slice(0,-1)+'…';
-  x.fillText(t,25,c.height/2);
+  if(up){x.translate(c.width/2,c.height-30);x.rotate(-Math.PI/2);x.fillText(t,0,0)}else x.fillText(t,25,c.height/2);
   const tx=new THREE.CanvasTexture(c);tx.anisotropy=4;return tx}
 function box(w,h,d,color,label,fg,it){const g=new THREE.BoxGeometry(w,h,d);const side=new THREE.MeshLambertMaterial({color});
   const mats=[side,side,side,side,label?new THREE.MeshLambertMaterial({map:labelTex(label,w,h,color,fg||'#ffffff',it)}):side,side];
