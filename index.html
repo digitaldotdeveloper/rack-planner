@@ -141,6 +141,47 @@ button.icon{padding:3px 7px;line-height:1}
 .toast button{margin-left:10px;padding:2px 9px}
 .toast.on button{pointer-events:auto}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+/* print: racks with their U numbers + the 3D view as it is turned + plain equipment list + numbered port maps, built on beforeprint */
+.printonly{display:none}
+.printonly h3{font-size:12px;margin:0 0 2mm;font-weight:600}
+.printonly table{font-size:10px;margin-bottom:4mm}
+.printonly td,.printonly th{padding:2.5px 5px}
+.printonly td:first-child{font-family:var(--mono);white-space:nowrap}
+.pc{display:inline-flex;align-items:center;justify-content:center;font:9px/1 var(--mono);font-style:normal;border:1px solid #9aa3ad;border-radius:2px;min-width:5mm;height:5mm;color:#444}
+.pc.b{background:var(--cab-b);color:#fff;border-color:transparent}
+.pc.o{background:var(--cab-o);color:#1b1f24;border-color:transparent}
+.pleg{font-size:10px;line-height:2.1;margin:0}
+.p3d{display:block;width:100%;margin-bottom:4mm;border-radius:4px;border:1px solid #cfd5db}
+#printDate{color:var(--muted);font-size:11px;margin-top:2px}
+#printPorts{break-before:page}
+.pps{display:flex;flex-wrap:wrap;gap:5mm 8mm}
+.pp{break-inside:avoid;display:grid;gap:1mm}
+.pp b{font-size:10.5px}
+.pp span{font-size:9px;color:var(--muted)}
+.pp .g{display:grid;grid-template-rows:repeat(2,5.5mm);grid-auto-flow:column;grid-auto-columns:6.4mm;gap:.7mm}
+.pp .g .pc{min-width:0;height:auto}
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  :root{--u:var(--pu,20px);--bg:#fff;--rail:#eef0f2;--rail-fg:#333}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{height:auto}
+  body{background:#fff;padding:0}
+  .gate,.bar,.side,#equip,.toast,.sub,[data-cabdel]{display:none!important}
+  .printonly{display:block}
+  .wrap{display:block;max-width:none}
+  .top{margin-bottom:5mm}
+  .tile{padding:4px 10px;min-width:0}
+  .tile b{font-size:15px}
+  .stage{display:grid!important;grid-template-columns:1fr;gap:6mm;align-items:start}
+  .stage[data-n="1"]{grid-template-columns:96mm 1fr}
+  #view2d{display:grid!important}
+  .panel{border:0;padding:0}
+  .panel h2 input,.panel h2 select{border:0;background:none;padding:0;appearance:none;-webkit-appearance:none;color:#000;font-weight:600}
+  .rack{border:1px solid #9aa3ad;break-inside:avoid}
+  .dev{font-size:11px}
+  .dev.sel{outline:0}
+  .ports{grid-template-rows:repeat(2,6px)}
+}
 /* login gate */
 .gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .gate form{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:22px 20px;width:100%;max-width:320px;display:grid;gap:10px}
@@ -167,6 +208,7 @@ button.icon{padding:3px 7px;line-height:1}
   <div class="top">
     <div>
       <h1>Head Office Rack Planner</h1>
+      <div class="printonly" id="printDate"></div>
       <p class="sub">U1 at the bottom. Drag any device up or down to move it, click it to set how many U it takes and which ports are patched. The 3D view follows as you go. Saved in this browser.</p>
     </div>
     <div class="tiles" id="tiles"></div>
@@ -177,7 +219,7 @@ button.icon{padding:3px 7px;line-height:1}
       <button id="tab2d" class="on">Elevation</button>
       <button id="tab3d">3D view</button>
     </div>
-    <div class="acts"><button id="undoBtn" title="Ctrl+Z">Undo</button><button id="addCabBtn">Add cabinet</button></div>
+    <div class="acts"><button id="undoBtn" title="Ctrl+Z">Undo</button><button id="printBtn" title="Print the rack with its U numbers, the 3D view as it is turned now, the equipment list and the port maps">Print</button><button id="addCabBtn">Add cabinet</button></div>
   </div>
 
   <div class="stage" id="stage" data-view="2d">
@@ -192,9 +234,11 @@ button.icon{padding:3px 7px;line-height:1}
         </div>
       </div>
     </div>
+    <div class="printonly" id="printList"></div>
   </div>
+  <div class="printonly" id="printPorts"></div>
 
-  <div class="panel">
+  <div class="panel" id="equip">
     <h2>Equipment</h2>
     <div class="legend" id="legend"></div>
     <div class="tbl" style="margin-top:10px">
@@ -446,6 +490,31 @@ document.getElementById('tab2d').onclick=()=>setView('2d');
 document.getElementById('tab3d').onclick=()=>setView('3d');
 matchMedia('(min-width:1000px)').addEventListener('change',()=>{if(is3D())build3D()});
 
+/* ---------- print ---------- */
+// the 3D scene exactly as it is turned right now, rendered at a fixed size so it also works while the 3D tab is hidden
+function shot3D(){build3D();if(!R)return '';const sel0=sel;sel=-1;build3D();
+  R.renderer.setSize(1100,760,false);R.camera.aspect=1100/760;R.camera.updateProjectionMatrix();R.aim();R.renderer.render(R.scene,R.camera);
+  const url=R.renderer.domElement.toDataURL('image/png');sel=sel0;R.resize();return url}
+function buildPrint(){const on=items().filter(it=>it.on);
+  const rng=it=>'U'+it.pos+(it.u>1?'–'+(it.pos+it.u-1):''),cnt=(it,ch)=>pm(it).split(ch).length-1;
+  let tb=0,to=0,html='';const img=shot3D();
+  if(img)html+=`<img class="p3d" alt="3D view" src="${img}">`;
+  cabs().forEach((cb,c)=>{const list=on.filter(it=>it.cab===c).sort((a,b)=>b.pos-a.pos),used=list.reduce((a,it)=>a+it.u,0);
+    html+=`<h3>${esc(cb.name)} · ${cb.size}U · ${used}U used, ${cb.size-used}U free</h3><table><thead><tr><th>U</th><th>Device</th><th>Size</th><th>Cables</th></tr></thead><tbody>`+
+      list.map(it=>{const b=cnt(it,'b'),o=cnt(it,'o');tb+=b;to+=o;
+        return `<tr><td>${rng(it)}</td><td>${esc(it.name)}${it.type==='tower'?' ×'+(it.n||1):''}</td><td>${it.u}U</td><td>${it.ports?`${b} blue, ${o} orange, ${it.ports-b-o} free`:'–'}</td></tr>`}).join('')+'</tbody></table>'});
+  html+=`<p class="pleg"><i class="pc b">1</i> Blue cable: computers, printers (on PoE switches: phones, Grandstream APs) · ${tb} in total<br><i class="pc o">1</i> Orange cable: cameras · ${to} in total</p>`;
+  document.getElementById('printList').innerHTML=html;
+  const wp=on.filter(it=>it.ports).sort((a,b)=>a.cab-b.cab||b.pos-a.pos);
+  document.getElementById('printPorts').innerHTML=wp.length?'<h3>Port maps</h3><div class="pps">'+wp.map(it=>`<div class="pp"><b>${cabs().length>1?esc(cabShort(it.cab))+' · ':''}${rng(it)} · ${esc(it.name)}</b><span>blue = ${blueFor(it)} · orange = cameras</span><div class="g">${[...pm(it)].map((ch,k)=>`<i class="pc ${ch==='.'?'':ch}">${k+1}</i>`).join('')}</div></div>`).join('')+'</div>':'';
+  document.getElementById('printDate').textContent='Printed '+new Date().toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
+}
+let themeWas;
+addEventListener('beforeprint',()=>{const r=document.documentElement;themeWas=r.dataset.theme;r.dataset.theme='light';
+  r.style.setProperty('--pu',Math.min(20,Math.floor(880/Math.max(...cabs().map(c=>c.size))))+'px');buildPrint()});
+addEventListener('afterprint',()=>{const r=document.documentElement;if(themeWas===undefined)delete r.dataset.theme;else r.dataset.theme=themeWas;if(is3D())build3D()});
+document.getElementById('printBtn').onclick=()=>print();
+
 /* ---------- 3D ---------- */
 let R=null;
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
@@ -458,10 +527,11 @@ function init3D(){if(R||typeof THREE==='undefined')return;
   scene.add(new THREE.HemisphereLight(0xffffff,0x334455,0.9));
   const sun=new THREE.DirectionalLight(0xffffff,0.7);sun.position.set(200,400,300);scene.add(sun);
   const group=new THREE.Group();scene.add(group);
-  R={renderer,scene,camera,cam,group,el};
+  R={renderer,scene,camera,cam,group,el,aim,resize};
   function resize(){const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
   new ResizeObserver(resize).observe(el);resize();
-  function frame(){const c=cam;camera.position.set(c.target.x+c.r*Math.sin(c.phi)*Math.sin(c.theta),c.target.y+c.r*Math.cos(c.phi),c.target.z+c.r*Math.sin(c.phi)*Math.cos(c.theta));camera.lookAt(c.target);renderer.render(scene,camera);requestAnimationFrame(frame)}
+  function aim(){const c=cam;camera.position.set(c.target.x+c.r*Math.sin(c.phi)*Math.sin(c.theta),c.target.y+c.r*Math.cos(c.phi),c.target.z+c.r*Math.sin(c.phi)*Math.cos(c.theta));camera.lookAt(c.target)}
+  function frame(){aim();renderer.render(scene,camera);requestAnimationFrame(frame)}
   frame();
   // orbit / pan / zoom
   const ptrs=new Map();let last=null,pinch=0,downAt=null;const ray=new THREE.Raycaster();
